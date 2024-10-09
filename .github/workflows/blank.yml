@@ -1,19 +1,54 @@
-name: Twilio Sned
+name: Scrape Website and Twilio Send
 on:
   workflow_dispatch: # allows you to manually trigger the workflow
 env:
-    TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-    TWILIO_API_KEY: ${{ secrets.TWILIO_API_KEY }}
-    TWILIO_API_SECRET: ${{ secrets.TWILIO_API_SECRET }}
+  TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+  TWILIO_API_KEY: ${{ secrets.TWILIO_API_KEY }}
+  TWILIO_API_SECRET: ${{ secrets.TWILIO_API_SECRET }}
+  URL: ${{ secrets.URL }}
+  TEXT_TO_FIND: ${{ secrets.TEXT_TO_FIND }}
 permissions:
   contents: read
 jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get install python3-pip
+          pip3 install requests beautifulsoup4
+
+      - name: Scrape the website
+        id: scrape_step
+        run: |
+          python3 - <<EOF
+          import requests
+          from bs4 import BeautifulSoup
+
+          # Fetch the page content
+          url = "${{ secrets.URL }}"
+          text_to_find = "${{ secrets.TEXT_TO_FIND }}"
+          
+          response = requests.get(url)
+          if response.status_code == 200:
+              page_content = response.text
+              soup = BeautifulSoup(page_content, 'html.parser')
+              
+              # Check if the text exists in the content
+              if text_to_find in soup.get_text():
+                  print(f"::set-output name=text_found::true")
+              else:
+                  print(f"::set-output name=text_found::false")
+          else:
+              print(f"::error ::Failed to fetch the website")
+          EOF
+
   send:
+    if: steps.scrape_step.outputs.text_found == 'false'  # Only run if text was not found
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: fabasoad/twilio-voice-call-action@v1
-        if: success()
         with:
           text: 'GitHub actions build number ${{ github.run_number }} passed successfully.'
           from: ${{ secrets.FROM_PHONE }}
