@@ -9,6 +9,7 @@ env:
   TEXT_TO_FIND: ${{ secrets.TEXT_TO_FIND }}
 permissions:
   contents: read
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
@@ -42,9 +43,12 @@ jobs:
           else:
               print(f"::error ::Failed to fetch the website")
           EOF
+    outputs:
+      text_found: ${{ steps.scrape_step.outputs.text_found }}
 
   send:
-    if: steps.scrape_step.outputs.text_found == 'false'  # Only run if text was not found
+    needs: scrape
+    if: needs.scrape.outputs.text_found == 'false'  # Only run if text was not found
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
