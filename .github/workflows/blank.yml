@@ -27,23 +27,39 @@ jobs:
           python3 - <<EOF
           import requests
           from bs4 import BeautifulSoup
-
+          from requests.adapters import HTTPAdapter
+          from urllib3.util.retry import Retry
+      
+          # Set up a retry strategy
+          retry_strategy = Retry(
+              total=5,  # Retry 5 times
+              status_forcelist=[429, 500, 502, 503, 504],  # Retry on these HTTP statuses
+              method_whitelist=["HEAD", "GET", "OPTIONS"],  # Retry only on these HTTP methods
+              backoff_factor=1  # Wait 1, 2, 4, 8, etc. seconds between retries
+          )
+          adapter = HTTPAdapter(max_retries=retry_strategy)
+          http = requests.Session()
+          http.mount("https://", adapter)
+          http.mount("http://", adapter)
+      
           # Fetch the page content
           url = "${{ secrets.URL }}"
           text_to_find = "${{ secrets.TEXT_TO_FIND }}"
-          
-          response = requests.get(url)
-          if response.status_code == 200:
+      
+          try:
+              response = http.get(url)
+              response.raise_for_status()  # Raise an error for bad HTTP statuses
               page_content = response.text
               soup = BeautifulSoup(page_content, 'html.parser')
-              
+      
               # Check if the text exists in the content
               if text_to_find in soup.get_text():
                   print(f"::set-output name=text_found::true")
               else:
                   print(f"::set-output name=text_found::false")
-          else:
-              print(f"::error ::Failed to fetch the website")
+      
+          except requests.exceptions.RequestException as e:
+              print(f"::error ::Failed to fetch the website: {e}")
           EOF
     outputs:
       text_found: ${{ steps.scrape_step.outputs.text_found }}
