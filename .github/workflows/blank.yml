@@ -11,9 +11,12 @@ jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - name: 'Sending SMS Notification'
-        uses: twilio-labs/actions-sms@v1
+      - uses: actions/checkout@v3
+      - uses: fabasoad/twilio-voice-call-action@v1
+        if: success()
         with:
-          fromPhoneNumber: ${{ secrets.FROM_PHONE }} # alternatively, use a Repository Secret
-          toPhoneNumber: ${{ secrets.TO_PHONE }} # alternatively, use a Repository Secret
-          message: 'Hello from Twilio'
+          text: 'GitHub actions build number ${{ github.run_number }} passed successfully.'
+          from: ${{ secrets.FROM_PHONE }}
+          to: ${{ secrets.TO_PHONE }}
+          twilio_account_sid: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          twilio_auth_token: ${{ secrets.TWILIO_AUTH_TOKEN }}
